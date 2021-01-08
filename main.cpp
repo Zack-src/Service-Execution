@@ -1,3 +1,5 @@
+//https://github.com/diegcrane
+
 #include <string>
 #include <windows.h>
 #include <algorithm>
@@ -62,8 +64,8 @@ std::vector<std::string> Get_Memory_Execution() {
 
 		if (!ReadProcessMemory(phandle, (LPVOID)address, &memory[0], info.RegionSize, 0)) continue;
 
-		for (__int64 pos = 0; 
-			pos != std::string::npos; 
+		for (__int64 pos = 0;
+			pos != std::string::npos;
 			pos = memory.find(":\\", pos + 1))
 		{
 			std::string path;
@@ -99,7 +101,7 @@ int main() {
 	std::map<std::string, int> Lmap;
 	for (std::string x : executions) {
 		if (Lmap[x] == NULL) {
-			
+
 			Lmap[x] = 1;
 
 			if (exists(x)) {
@@ -115,6 +117,6 @@ int main() {
 		}
 	}
 
-	std::cin.ignore(); 
+	std::cin.ignore();
 	return 0;
 }
