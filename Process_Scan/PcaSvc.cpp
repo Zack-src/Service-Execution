@@ -47,12 +47,12 @@ void Get_PcaSvc_File(HANDLE hConsole)
 
 	std::cout << "PcaSvc\n";
 	std::map<std::string, int> Lmap;
-	for (std::string x : executions) {
-		if (Lmap[x] == NULL) {
+	for (std::string path : executions) {
+		if (Lmap[path] == NULL) {
 
-			Lmap[x] = 1;
+			Lmap[path] = 1;
 
-			if (file_exists(x)) 
+			if (file_exists(path))
 			{
 				SetConsoleTextAttribute(hConsole, 2);
 				std::cout << "\tFile is present   ";
@@ -64,7 +64,9 @@ void Get_PcaSvc_File(HANDLE hConsole)
 			}
 			
 			SetConsoleTextAttribute(hConsole, 7);
-			std::cout << x << std::endl;
+
+			getLastLaunchTime(path);
+			std::cout << path << std::endl;
 		}
 	}
 }

@@ -29,6 +29,7 @@ int main() {
 					std::cout << " (" << process_id << ")" << std::endl;
 
 					for (const std::string& path : paths) {
+
 						if (file_exists(path))
 						{
 							SetConsoleTextAttribute(hConsole, 2);
@@ -40,7 +41,10 @@ int main() {
 							std::cout << "\tFile is deleted   ";
 						}
 						SetConsoleTextAttribute(hConsole, 7);
+
+						getLastLaunchTime(path);
 						std::cout << path << std::endl;
+
 					}
 
 					std::cout << std::endl;

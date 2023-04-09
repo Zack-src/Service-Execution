@@ -140,4 +140,25 @@ std::string get_service_name(DWORD process_id) {
 	return "";
 }
 
+void getLastLaunchTime(const std::string& path) {
+	HANDLE hFile = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (hFile == INVALID_HANDLE_VALUE) {
+		return;
+	}
+
+	FILETIME creationTime, lastAccessTime, lastWriteTime;
+	if (!GetFileTime(hFile, &creationTime, &lastAccessTime, &lastWriteTime)) {
+		CloseHandle(hFile);
+		return;
+	}
+
+	SYSTEMTIME stUTC, stLocal;
+	FileTimeToSystemTime(&lastAccessTime, &stUTC);
+	SystemTimeToTzSpecificLocalTime(nullptr, &stUTC, &stLocal);
+
+	std::cout << "(" << stLocal.wDay << "/" << stLocal.wMonth << "/" << stLocal.wYear << " " << stLocal.wHour << ":" << std::setw(2) << std::setfill('0') << stLocal.wMinute << ")   ";
+
+	CloseHandle(hFile);
+}
+
 /* end chatGPT*/
