@@ -1,127 +1,58 @@
-//https://github.com/diegcrane
-
-#include <string>
-#include <windows.h>
-#include <algorithm>
-#include <iostream>
-#include <vector>
-#include <map>
-
-__int64 Get_Service_PID(const char* name) 
-{
-	auto shandle = OpenSCManagerA(0, 0, 0), shandle_ = OpenServiceA(shandle, name, SERVICE_QUERY_STATUS);
-
-	if (!shandle || !shandle_) 
-		return 0;
-
-	SERVICE_STATUS_PROCESS ssp{}; DWORD bytes;
-
-	bool query = QueryServiceStatusEx(shandle_, SC_STATUS_PROCESS_INFO, (LPBYTE)&ssp, sizeof(ssp), &bytes);
-
-	CloseServiceHandle(shandle);
-	CloseServiceHandle(shandle_);
-	return ssp.dwProcessId;
-
-}
-
-__int64 privilege(const char* priv) 
-{
-	HANDLE thandle;
-	LUID identidier;
-	TOKEN_PRIVILEGES privileges{};
-
-	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &thandle)) 
-		return 0;
-
-	if (!LookupPrivilegeValue(0, priv, &identidier)) 
-		return 0;
-
-	privileges.PrivilegeCount = 1;
-	privileges.Privileges[0].Luid = identidier;
-	privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-
-	if (!AdjustTokenPrivileges(thandle, 0, &privileges, sizeof(privileges), NULL, NULL))
-		return 0;
-
-	CloseHandle(thandle); 
-	return 1;
-}
-
-std::vector<std::string> Get_Memory_Execution() 
-{
-	__int64 pid = Get_Service_PID("PcaSvc");
-	if (!pid) return { "0" };
-
-	HANDLE phandle = OpenProcess(PROCESS_ALL_ACCESS, 0, pid);
-	if (!phandle) 
-		return { "0" };
-
-	std::vector<std::string>list; MEMORY_BASIC_INFORMATION info;
-
-	for (static __int64 address = 0; VirtualQueryEx(phandle, (LPVOID)address, &info, sizeof(info)); address += info.RegionSize)
-	{
-		if (info.State != MEM_COMMIT) 
-			continue;
-
-		std::string memory;
-		memory.resize(info.RegionSize);
-
-		if (!ReadProcessMemory(phandle, (LPVOID)address, &memory[0], info.RegionSize, 0)) 
-			continue;
-
-		for (__int64 pos = 0; pos != std::string::npos; pos = memory.find(":\\", pos + 1))
-		{
-			std::string path;
-
-			for (__int64 x = pos - 1; memory[x] > 32 && memory[x] < 123; x++)
-				path.push_back(memory[x]);
-
-			if (path[path.length() - 4] != '.')
-				continue;
-
-			list.push_back(path);
-		}
-	}
-	return list;
-}
-
-inline bool exists(const std::string& name) 
-{
-	struct stat buffer;
-	return (stat(name.c_str(), &buffer) == 0);
-}
+#include "Include.h"
 
 int main() {
 
+
+	SetConsoleTitleA("Service-Execution, by github.com/Zack-src");
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-	if (!privilege(SE_DEBUG_NAME)) 
-		return 0;
+	privilege(SE_DEBUG_NAME);
 
-	std::vector<std::string>executions = Get_Memory_Execution();
-	if (executions[0] == "0" || !executions.size())
-		return 0;
+	std::vector<DWORD> process_ids = get_all_process_ids();
 
-	std::map<std::string, int> Lmap;
-	for (std::string x : executions) 
-	{
-		if (Lmap[x] == NULL) 
-		{
-			Lmap[x] = 1;
+	for (DWORD process_id : process_ids) {
+		HANDLE process_handle = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, process_id);
+		if (process_handle) {
+			std::string pcaclient_content = find_pcaclient(process_handle);
+			CloseHandle(process_handle);
 
-			if (exists(x)) 
-			{
-				SetConsoleTextAttribute(hConsole, 2);
-				std::cout << "File is present   ";
+			if (!pcaclient_content.empty()) {
+				std::vector<std::string> paths = extract_paths(pcaclient_content);
+
+				if (!paths.empty()) {
+					std::string process_name = get_process_name(process_id);
+					std::string service_name = process_name == "svchost.exe" ? get_service_name(process_id) : "";
+
+					std::cout << process_name;
+					if (!service_name.empty()) {
+						std::cout << " (Service: " << service_name << ")";
+					}
+					std::cout << " (" << process_id << ")" << std::endl;
+
+					for (const std::string& path : paths) {
+						if (file_exists(path))
+						{
+							SetConsoleTextAttribute(hConsole, 2);
+							std::cout << "\tFile is present   ";
+						}
+						else
+						{
+							SetConsoleTextAttribute(hConsole, 4);
+							std::cout << "\tFile is deleted   ";
+						}
+						SetConsoleTextAttribute(hConsole, 7);
+						std::cout << path << std::endl;
+					}
+
+					std::cout << std::endl;
+				}
 			}
-			else 
-			{
-				SetConsoleTextAttribute(hConsole, 4);
-				std::cout << "File is deleted   ";
-			}
-			SetConsoleTextAttribute(hConsole, 7);
-			std::cout << x << std::endl;
 		}
 	}
+
+	Get_PcaSvc_File(hConsole);
+
+
+	std::cout << "\n\n" << "------End------";
 
 	std::cin.ignore();
 	return 0;
